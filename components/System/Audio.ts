@@ -61,7 +61,7 @@ const VOICE_FILES: Record<VoiceId, string> = {
 
 const SFX_VOLUME = 0.55;
 const VOICE_VOLUME = 1.0;
-const MUSIC_DUCK_GAIN = 0.18;
+const MUSIC_DUCK_GAIN = 0.5; // music stays audible under the narrator instead of dropping near-silent
 const MUSIC_DUCK_RELEASE = 0.6;
 
 export class AudioController {

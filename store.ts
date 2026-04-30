@@ -180,11 +180,15 @@ export const useStore = create<GameState>((set, get) => ({
     // Always prefetch — the default word (OUTRUN) has letters (O/U/T/R) that
     // aren't baked, plus the word-complete stinger needs to spell OUTRUN, not GEMINI.
     prefetchCallsignAudio(target).catch(() => {});
-    if (cs && isLiveTtsAvailable()) {
-      speakLive(composeGreeting(cs), 'run-start');
-    } else {
-      speak('run-start');
-    }
+    // Give the music ~700ms to fade in before the narrator speaks, so the bed
+    // is audible from the very first beat of the run instead of starting after.
+    setTimeout(() => {
+      if (cs && isLiveTtsAvailable()) {
+        speakLive(composeGreeting(cs), 'run-start');
+      } else {
+        speak('run-start');
+      }
+    }, 700);
   },
 
   restartGame: () => {

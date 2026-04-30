@@ -14,7 +14,7 @@ const TRACKS: Record<number, string> = {
   3: '/audio/music/level-3.mp3',
 };
 
-const FADE_DURATION_MS = 1200;
+const FADE_DURATION_MS = 600; // shorter so music establishes before voice intro
 
 interface PlayingTrack {
   el: HTMLAudioElement;
