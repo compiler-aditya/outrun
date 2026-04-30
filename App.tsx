@@ -12,6 +12,7 @@ import { Player } from './components/World/Player';
 import { LevelManager } from './components/World/LevelManager';
 import { Effects } from './components/World/Effects';
 import { HUD } from './components/UI/HUD';
+import { MusicPlayer } from './components/System/MusicPlayer';
 import { useStore } from './store';
 
 // Dynamic Camera Controller
@@ -71,6 +72,7 @@ function App() {
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden select-none">
       <HUD />
+      <MusicPlayer />
       <Canvas
         shadows
         dpr={[1, 1.5]} 
