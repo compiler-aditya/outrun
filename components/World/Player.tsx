@@ -22,6 +22,11 @@ const JOINT_SPHERE_GEO = new THREE.SphereGeometry(0.08, 8, 8);
 const FOOT_GEO = new THREE.BoxGeometry(0.18, 0.1, 0.18);
 const SHADOW_GEO = new THREE.CircleGeometry(0.6, 32);
 
+// Shield aura geometries — shown when isImmortalityActive or briefly after damage
+const SHIELD_BUBBLE_GEO = new THREE.IcosahedronGeometry(0.85, 1);
+const SHIELD_RING_GEO = new THREE.TorusGeometry(0.92, 0.035, 8, 36);
+const SHIELD_PARTICLE_GEO = new THREE.SphereGeometry(0.05, 6, 6);
+
 export const Player: React.FC = () => {
   const groupRef = useRef<THREE.Group>(null);
   const bodyRef = useRef<THREE.Group>(null);
@@ -34,6 +39,18 @@ export const Player: React.FC = () => {
       useRef<THREE.Group>(null),
       useRef<THREE.Group>(null),
       useRef<THREE.Group>(null),
+  ];
+
+  // Shield aura refs
+  const shieldRef = useRef<THREE.Group>(null);
+  const shieldBubbleRef = useRef<THREE.Mesh>(null);
+  const shieldRing1Ref = useRef<THREE.Mesh>(null);
+  const shieldRing2Ref = useRef<THREE.Mesh>(null);
+  const shieldParticleRefs = [
+      useRef<THREE.Mesh>(null),
+      useRef<THREE.Mesh>(null),
+      useRef<THREE.Mesh>(null),
+      useRef<THREE.Mesh>(null),
   ];
 
   const { status, laneCount, takeDamage, hasDoubleJump, activateImmortality, isImmortalityActive } = useStore();
@@ -81,7 +98,29 @@ export const Player: React.FC = () => {
           }),
           shadowMaterial: new THREE.MeshBasicMaterial({ color: '#000000', opacity: 0.3, transparent: true })
       };
-  }, [isImmortalityActive]); 
+  }, [isImmortalityActive]);
+
+  // Shield aura materials — gold for immortality, cyan for post-damage invincibility.
+  // We'll swap the color in useFrame so the same materials cover both states without
+  // re-creating buffers every render.
+  const { shieldBubbleMat, shieldRingMat, shieldParticleMat } = useMemo(() => ({
+      shieldBubbleMat: new THREE.MeshBasicMaterial({
+          color: '#ffd700',
+          wireframe: true,
+          transparent: true,
+          opacity: 0.45,
+      }),
+      shieldRingMat: new THREE.MeshBasicMaterial({
+          color: '#ffffff',
+          transparent: true,
+          opacity: 0.7,
+      }),
+      shieldParticleMat: new THREE.MeshBasicMaterial({
+          color: '#ffffff',
+          transparent: true,
+          opacity: 0.9,
+      }),
+  }), []);
 
   // --- Reset State on Game Start ---
   useEffect(() => {
@@ -285,22 +324,84 @@ export const Player: React.FC = () => {
         }
     }
 
-    // Invincibility / Immortality Effect
-    const showFlicker = isInvincible.current || isImmortalityActive;
-    if (showFlicker) {
+    // Invincibility / Immortality Effect — flicker the body only, leave the
+    // shield aura always-on so it visually cocoons the flickering body.
+    const shieldActive = isInvincible.current || isImmortalityActive;
+    if (bodyRef.current) {
         if (isInvincible.current) {
-             if (Date.now() - lastDamageTime.current > 1500) {
+            if (Date.now() - lastDamageTime.current > 1500) {
                 isInvincible.current = false;
-                groupRef.current.visible = true;
-             } else {
-                groupRef.current.visible = Math.floor(Date.now() / 50) % 2 === 0;
-             }
-        } 
-        if (isImmortalityActive) {
-            groupRef.current.visible = true; 
+                bodyRef.current.visible = true;
+            } else {
+                bodyRef.current.visible = Math.floor(Date.now() / 50) % 2 === 0;
+            }
+        } else {
+            bodyRef.current.visible = true;
         }
-    } else {
-        groupRef.current.visible = true;
+    }
+    groupRef.current.visible = true;
+
+    // Shield aura — visibility, color, scale pulse, ring rotation, orbiting particles.
+    if (shieldRef.current) {
+        if (shieldActive) {
+            shieldRef.current.visible = true;
+
+            const t = state.clock.elapsedTime;
+            const isGolden = isImmortalityActive;
+            const tone = isGolden ? '#ffd700' : '#00ffff';
+            const accent = isGolden ? '#ffffff' : '#aaffff';
+
+            // Track body's vertical motion so the shield stays wrapped around the player
+            shieldRef.current.position.y = bodyRef.current?.position.y ?? 0.5;
+
+            // Pulsing scale — fast subtle breathe
+            const pulse = 1 + Math.sin(t * 5) * 0.06;
+            shieldRef.current.scale.setScalar(pulse);
+
+            // Bubble shimmer (opacity oscillation + color)
+            if (shieldBubbleRef.current) {
+                const mat = shieldBubbleRef.current.material as THREE.MeshBasicMaterial;
+                mat.color.set(tone);
+                mat.opacity = 0.30 + Math.sin(t * 8) * 0.18;
+                shieldBubbleRef.current.rotation.y = t * 0.5;
+                shieldBubbleRef.current.rotation.x = t * 0.35;
+            }
+
+            // Counter-rotating energy rings
+            if (shieldRing1Ref.current) {
+                const mat = shieldRing1Ref.current.material as THREE.MeshBasicMaterial;
+                mat.color.set(accent);
+                mat.opacity = 0.55 + Math.sin(t * 6) * 0.25;
+                shieldRing1Ref.current.rotation.x = t * 1.4;
+                shieldRing1Ref.current.rotation.z = t * 0.6;
+            }
+            if (shieldRing2Ref.current) {
+                const mat = shieldRing2Ref.current.material as THREE.MeshBasicMaterial;
+                mat.color.set(accent);
+                mat.opacity = 0.55 + Math.cos(t * 6) * 0.25;
+                shieldRing2Ref.current.rotation.y = -t * 1.8;
+                shieldRing2Ref.current.rotation.z = -t * 0.4;
+            }
+
+            // Orbiting particles — four sparks at staggered Y heights, varying speeds
+            const yOffsets = [0.42, 0.16, -0.16, -0.42];
+            const speeds = [1.5, 1.9, 1.7, 2.1];
+            shieldParticleRefs.forEach((ref, i) => {
+                if (!ref.current) return;
+                const angle = t * speeds[i] + (i * Math.PI / 2);
+                const radius = 0.85 + Math.sin(t * 3 + i) * 0.06;
+                ref.current.position.set(
+                    Math.cos(angle) * radius,
+                    yOffsets[i],
+                    Math.sin(angle) * radius,
+                );
+                const mat = ref.current.material as THREE.MeshBasicMaterial;
+                mat.color.set(accent);
+                mat.opacity = 0.7 + Math.sin(t * 10 + i) * 0.3;
+            });
+        } else {
+            shieldRef.current.visible = false;
+        }
     }
   });
 
@@ -308,7 +409,8 @@ export const Player: React.FC = () => {
   useEffect(() => {
      const checkHit = (e: any) => {
         if (isInvincible.current || isImmortalityActive) return;
-        audio.playDamage(); // Play damage sound
+        audio.playDamage(); // Impact zap (already on the SFX bus)
+        audio.playOuch();   // Vocal yelp — pilot's reaction, layered on top
         takeDamage();
         isInvincible.current = true;
         impactRef.current = 1.0; // Trigger recoil
@@ -375,6 +477,18 @@ export const Player: React.FC = () => {
       </group>
       
       <mesh ref={shadowRef} position={[0, 0.02, 0]} rotation={[-Math.PI/2, 0, 0]} geometry={SHADOW_GEO} material={shadowMaterial} />
+
+      {/* Shimmer Shield Aura — wraps the player when invincible or immortal.
+          Always mounted so the useFrame animation stays alive; visibility is
+          driven by `shieldRef.current.visible` based on game state. */}
+      <group ref={shieldRef} position={[0, 0.5, 0]} visible={false}>
+          <mesh ref={shieldBubbleRef} geometry={SHIELD_BUBBLE_GEO} material={shieldBubbleMat} />
+          <mesh ref={shieldRing1Ref} geometry={SHIELD_RING_GEO} material={shieldRingMat} />
+          <mesh ref={shieldRing2Ref} geometry={SHIELD_RING_GEO} material={shieldRingMat} rotation={[Math.PI / 2, 0, 0]} />
+          {[0, 1, 2, 3].map(i => (
+              <mesh key={i} ref={shieldParticleRefs[i]} geometry={SHIELD_PARTICLE_GEO} material={shieldParticleMat} />
+          ))}
+      </group>
     </group>
   );
 };

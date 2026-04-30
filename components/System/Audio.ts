@@ -13,7 +13,8 @@
 type SfxId =
   | 'gem' | 'letter' | 'jump' | 'double-jump'
   | 'damage' | 'immortality' | 'shop-portal'
-  | 'game-over' | 'victory';
+  | 'game-over' | 'victory'
+  | 'ouch-1' | 'ouch-2' | 'ouch-3';
 
 type VoiceId =
   | 'letter-G' | 'letter-E' | 'letter-M' | 'letter-I' | 'letter-N'
@@ -31,6 +32,9 @@ const SFX_FILES: Record<SfxId, string> = {
   'shop-portal': '/audio/sfx/shop-portal.mp3',
   'game-over': '/audio/sfx/game-over.mp3',
   'victory': '/audio/sfx/victory.mp3',
+  'ouch-1': '/audio/sfx/ouch-1.mp3',
+  'ouch-2': '/audio/sfx/ouch-2.mp3',
+  'ouch-3': '/audio/sfx/ouch-3.mp3',
 };
 
 const VOICE_FILES: Record<VoiceId, string> = {
@@ -232,6 +236,18 @@ export class AudioController {
     this.playSfx(isDouble ? 'double-jump' : 'jump', () => this.synthJump(isDouble));
   playDamage = () => this.playSfx('damage', () => this.synthDamage());
 
+  /**
+   * Vocal yelp on damage — plays one of three TTS-generated "Ow!"/"Argh!"/"Oof."
+   * variations for variety. Falls back to a synthesized vowel yelp (sawtooth +
+   * bandpass + vibrato) if the files haven't been generated yet, so this works
+   * immediately even before npm run generate-audio.
+   */
+  playOuch = () => {
+    const i = Math.floor(Math.random() * 3) + 1;
+    const id = (i === 1 ? 'ouch-1' : i === 2 ? 'ouch-2' : 'ouch-3') as SfxId;
+    return this.playSfx(id, () => this.synthYelp());
+  };
+
   private synthGemCollect() {
     if (!this.ctx || !this.sfxGain) this.init();
     if (!this.ctx || !this.sfxGain) return;
@@ -310,6 +326,58 @@ export class AudioController {
     noise.connect(noiseGain); noiseGain.connect(this.sfxGain);
     osc.start(t); osc.stop(t + 0.3);
     noise.start(t); noise.stop(t + 0.3);
+  }
+
+  // Vocal "ow!" yelp — sawtooth carrier shaped by a bandpass filter to mimic
+  // a vowel formant, vibrato on the pitch for character, swooping pitch contour.
+  // Randomized parameters so consecutive yelps aren't identical.
+  private synthYelp() {
+    if (!this.ctx || !this.sfxGain) this.init();
+    if (!this.ctx || !this.sfxGain) return;
+    const t = this.ctx.currentTime;
+
+    const osc = this.ctx.createOscillator();
+    const filter = this.ctx.createBiquadFilter();
+    const gain = this.ctx.createGain();
+    const vibrato = this.ctx.createOscillator();
+    const vibratoGain = this.ctx.createGain();
+
+    // Two-stage pitch contour: brief "OH" attack with a quick rise, then
+    // long descending "ow" body. Sounds more like a real yelp than a single
+    // glide.
+    osc.type = 'sawtooth';
+    const startFreq = 360 + Math.random() * 120;
+    const peakFreq = startFreq * 1.15;
+    const endFreq = 150 + Math.random() * 50;
+    osc.frequency.setValueAtTime(startFreq, t);
+    osc.frequency.linearRampToValueAtTime(peakFreq, t + 0.04);
+    osc.frequency.exponentialRampToValueAtTime(endFreq, t + 0.40);
+
+    // Vibrato modulates the carrier pitch for vocal character
+    vibrato.frequency.value = 6 + Math.random() * 4;
+    vibratoGain.gain.value = 18 + Math.random() * 10;
+    vibrato.connect(vibratoGain);
+    vibratoGain.connect(osc.frequency);
+
+    // Bandpass shapes the buzz into a vowel-like "ow"
+    filter.type = 'bandpass';
+    filter.frequency.value = 750 + Math.random() * 350;
+    filter.Q.value = 3.5;
+
+    // Louder, longer envelope so it cuts cleanly through the damage zap.
+    // 1.0 peak compounds through sfxGain (0.55) × master (0.55) ≈ 0.30 final,
+    // which is twice as loud as the previous 0.55 peak.
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(1.0, t + 0.025);
+    gain.gain.linearRampToValueAtTime(0.7, t + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.01, t + 0.55);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+
+    osc.start(t); vibrato.start(t);
+    osc.stop(t + 0.6); vibrato.stop(t + 0.6);
   }
 }
 
