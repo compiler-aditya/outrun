@@ -86,11 +86,14 @@ const ShopScreen: React.FC = () => {
     const [items, setItems] = useState<ShopItem[]>([]);
 
     useEffect(() => {
+        // Select 3 random items, filtering out one-time items already bought
         let pool = SHOP_ITEMS.filter(item => {
             if (item.id === 'DOUBLE_JUMP' && hasDoubleJump) return false;
             if (item.id === 'IMMORTAL' && hasImmortality) return false;
             return true;
         });
+
+        // Shuffle and pick 3
         pool = pool.sort(() => 0.5 - Math.random());
         setItems(pool.slice(0, 3));
     }, []);
@@ -115,7 +118,7 @@ const ShopScreen: React.FC = () => {
                                  </div>
                                  <h3 className="text-lg md:text-xl font-bold mb-2">{item.name}</h3>
                                  <p className="text-gray-400 text-xs md:text-sm mb-4 h-10 md:h-12 flex items-center justify-center">{item.description}</p>
-                                 <button
+                                 <button 
                                     onClick={() => buyItem(item.id as any, item.cost)}
                                     disabled={!canAfford}
                                     className={`px-4 md:px-6 py-2 rounded font-bold w-full text-sm md:text-base ${canAfford ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110' : 'bg-gray-700 cursor-not-allowed opacity-50'}`}
@@ -127,7 +130,7 @@ const ShopScreen: React.FC = () => {
                      })}
                  </div>
 
-                 <button
+                 <button 
                     onClick={closeShop}
                     className="flex items-center px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)]"
                  >
@@ -139,8 +142,8 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, callsign, setCallsign } = useStore();
-  const target = ['G', 'E', 'M', 'I', 'N', 'I'];
+  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, callsign, setCallsign, wordTarget } = useStore();
+  const target = wordTarget;
   const liveTts = isLiveTtsAvailable();
   const [draft, setDraft] = useState(callsign);
 
@@ -172,36 +175,56 @@ export const HUD: React.FC = () => {
               {/* Card Container */}
               <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.2)] border border-white/10 animate-in zoom-in-95 duration-500">
 
-                {/* Image Container - Auto height to fit full image without cropping */}
-                <div className="relative w-full bg-gray-900">
-                     <img
-                      src="https://www.gstatic.com/aistudio/starter-apps/gemini_runner/gemini_runner.png"
-                      alt="Gemini Runner Cover"
-                      className="w-full h-auto block"
-                     />
+                {/* Card body — synthwave gradient backdrop instead of cover image */}
+                <div className="relative w-full bg-gradient-to-b from-fuchsia-900/40 via-purple-900/30 to-[#050011]">
+                     {/* Title hero — synthwave styled */}
+                     <div className="relative aspect-[16/9] flex flex-col items-center justify-center overflow-hidden">
+                         {/* Sun gradient backdrop */}
+                         <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-pink-500/20 via-fuchsia-500/10 to-transparent" />
+                         {/* Horizon line */}
+                         <div className="absolute left-0 right-0 top-1/2 h-px bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent" />
+                         {/* Title */}
+                         <h1 className="relative font-cyber font-black text-5xl md:text-6xl tracking-[0.35em] bg-gradient-to-b from-yellow-200 via-pink-300 to-fuchsia-500 bg-clip-text text-transparent drop-shadow-[0_0_18px_rgba(255,0,170,0.45)] z-10">
+                             OUTRUN
+                         </h1>
+                         <p className="relative mt-3 text-[10px] md:text-xs text-cyan-300/80 font-mono tracking-[0.4em] z-10">
+                             SPEAK · THE · NAME
+                         </p>
+                         <p className="relative mt-1 text-[9px] text-cyan-400/40 font-mono tracking-widest z-10">
+                             an ElevenLabs synthwave runner
+                         </p>
+                     </div>
+                     <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#050011] via-[#050011]/80 to-transparent"></div>
 
-                     {/* Gradient Overlay for text readability */}
-                     <div className="absolute inset-0 bg-gradient-to-t from-[#050011] via-black/30 to-transparent"></div>
+                     <div className="relative flex flex-col justify-end items-center p-6 pb-8 text-center z-10">
 
-                     {/* Content positioned at the bottom of the card */}
-                     <div className="absolute inset-0 flex flex-col justify-end items-center p-6 pb-8 text-center z-10 bg-gradient-to-t from-black/80 to-transparent">
-
-                        {/* Call-sign input — narrator personalization only, doesn't affect gameplay */}
+                        {/* Call-sign input — 6 to 10 chars becomes your in-game word */}
                         <div className="w-full mb-4">
                             <label className="block text-cyan-300/70 text-[10px] tracking-[0.3em] font-mono mb-1.5">
-                                CALL SIGN {liveTts ? '(narrator will say it)' : '(optional)'}
+                                CALL SIGN (6–10 LETTERS) — BECOMES YOUR WORD
                             </label>
                             <input
                                 value={draft}
-                                onChange={e => setDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
+                                onChange={e => setDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
                                 onKeyDown={e => { if (e.key === 'Enter') onLaunch(); }}
-                                placeholder="PILOT"
-                                maxLength={12}
-                                className="w-full bg-black/60 border border-cyan-400/30 focus:border-cyan-400 outline-none text-cyan-100 font-cyber text-center tracking-[0.4em] text-lg px-3 py-2 rounded-lg placeholder:text-cyan-500/30 placeholder:tracking-[0.4em]"
+                                placeholder="OUTRUN"
+                                maxLength={10}
+                                className="w-full bg-black/60 border border-cyan-400/30 focus:border-cyan-400 outline-none text-cyan-100 font-cyber text-center tracking-[0.3em] text-lg px-3 py-2 rounded-lg placeholder:text-cyan-500/30 placeholder:tracking-[0.4em]"
                             />
-                            {liveTts && (
-                                <p className="text-[10px] text-cyan-500/60 mt-1 font-mono">
-                                    powered by ElevenLabs · live TTS
+                            <p className="text-[10px] mt-1 font-mono">
+                                {draft.length >= 6 ? (
+                                    <span className="text-cyan-300">
+                                        ✓ you'll spell <span className="font-bold tracking-[0.2em]">{draft}</span> ({draft.length} letters)
+                                    </span>
+                                ) : (
+                                    <span className="text-cyan-500/60">
+                                        {draft.length === 0 ? 'leave blank for OUTRUN' : `${6 - draft.length} more to use this — or play as OUTRUN`}
+                                    </span>
+                                )}
+                            </p>
+                            {liveTts && draft.length >= 6 && (
+                                <p className="text-[10px] text-cyan-500/60 mt-0.5 font-mono">
+                                    powered by ElevenLabs · narrator will speak your name
                                 </p>
                             )}
                         </div>
@@ -253,7 +276,7 @@ export const HUD: React.FC = () => {
                     </div>
                 </div>
 
-                <button
+                <button 
                   onClick={() => { audio.init(); restartGame(); }}
                   className="px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,255,255,0.4)]"
                 >
@@ -295,7 +318,7 @@ export const HUD: React.FC = () => {
                      </div>
                 </div>
 
-                <button
+                <button 
                   onClick={() => { audio.init(); restartGame(); }}
                   className="px-8 md:px-12 py-4 md:py-5 bg-white text-black font-black text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)] tracking-widest"
                 >
@@ -315,17 +338,17 @@ export const HUD: React.FC = () => {
                     {score.toLocaleString()}
                 </div>
             </div>
-
+            
             <div className="flex space-x-1 md:space-x-2">
                 {[...Array(maxLives)].map((_, i) => (
-                    <Heart
-                        key={i}
-                        className={`w-6 h-6 md:w-8 md:h-8 ${i < lives ? 'text-pink-500 fill-pink-500' : 'text-gray-800 fill-gray-800'} drop-shadow-[0_0_5px_#ff0054]`}
+                    <Heart 
+                        key={i} 
+                        className={`w-6 h-6 md:w-8 md:h-8 ${i < lives ? 'text-pink-500 fill-pink-500' : 'text-gray-800 fill-gray-800'} drop-shadow-[0_0_5px_#ff0054]`} 
                     />
                 ))}
             </div>
         </div>
-
+        
         {/* Level Indicator - Moved to Top Center aligned with Score/Hearts */}
         <div className="absolute top-5 left-1/2 transform -translate-x-1/2 text-sm md:text-lg text-purple-300 font-bold tracking-wider font-mono bg-black/50 px-3 py-1 rounded-full border border-purple-500/30 backdrop-blur-sm z-50">
             LEVEL {level} <span className="text-gray-500 text-xs md:text-sm">/ 3</span>
@@ -338,11 +361,15 @@ export const HUD: React.FC = () => {
              </div>
         )}
 
-        {/* Gemini Collection Status - Just below Top Bar */}
-        <div className="absolute top-16 md:top-24 left-1/2 transform -translate-x-1/2 flex space-x-2 md:space-x-3">
+        {/* Word Collection Status — sizes shrink slightly so 10-letter words still fit */}
+        <div className={`absolute top-16 md:top-24 left-1/2 transform -translate-x-1/2 flex ${target.length <= 7 ? 'space-x-2 md:space-x-3' : 'space-x-1 md:space-x-1.5'}`}>
             {target.map((char, idx) => {
                 const isCollected = collectedLetters.includes(idx);
-                const color = GEMINI_COLORS[idx];
+                // Cycle through the 6 neon colors so words longer than 6 still get unique slot tints.
+                const color = GEMINI_COLORS[idx % GEMINI_COLORS.length];
+                const sizeCls = target.length <= 7
+                    ? 'w-8 h-10 md:w-10 md:h-12 text-lg md:text-xl'
+                    : 'w-6 h-8 md:w-8 md:h-10 text-sm md:text-base';
 
                 return (
                     <div
@@ -353,7 +380,7 @@ export const HUD: React.FC = () => {
                             boxShadow: isCollected ? `0 0 20px ${color}` : 'none',
                             backgroundColor: isCollected ? color : 'rgba(0, 0, 0, 0.9)'
                         }}
-                        className={`w-8 h-10 md:w-10 md:h-12 flex items-center justify-center border-2 font-black text-lg md:text-xl font-cyber rounded-lg transform transition-all duration-300`}
+                        className={`${sizeCls} flex items-center justify-center border-2 font-black font-cyber rounded-lg transform transition-all duration-300`}
                     >
                         {char}
                     </div>
