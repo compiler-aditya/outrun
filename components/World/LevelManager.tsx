@@ -52,13 +52,19 @@ const SHOP_OUTLINE_GEO = new THREE.BoxGeometry(1, 7.2, 0.8); // Will be scaled
 const SHOP_FLOOR_GEO = new THREE.PlaneGeometry(1, 4); // Will be scaled
 
 const PARTICLE_COUNT = 600;
-const BASE_LETTER_INTERVAL = 150; 
+const BASE_LETTER_INTERVAL = 150;
+const REFERENCE_WORD_LENGTH = 6; // GEMINI/OUTRUN baseline — word lengths >6 scale spawn interval down
 
-const getLetterInterval = (level: number) => {
+const getLetterInterval = (level: number, wordLength: number = REFERENCE_WORD_LENGTH) => {
+    // Spawn interval scales inversely with word length so a sector takes roughly
+    // the same total distance regardless of whether the word has 6 or 10 letters.
+    // 7-letter word at level 1 -> 128.6 distance per letter (was 150).
+    // 10-letter word at level 1 -> 90.0 distance per letter.
     // Level 1: 150
     // Level 2: 225 (150 * 1.5)
     // Level 3: 337.5 (225 * 1.5)
-    return BASE_LETTER_INTERVAL * Math.pow(1.5, Math.max(0, level - 1));
+    const lengthScale = REFERENCE_WORD_LENGTH / Math.max(1, wordLength);
+    return BASE_LETTER_INTERVAL * Math.pow(1.5, Math.max(0, level - 1)) * lengthScale;
 };
 
 const MISSILE_SPEED = 30; // Extra speed added to world speed
@@ -232,7 +238,7 @@ export const LevelManager: React.FC = () => {
         
         // Reset trackers
         distanceTraveled.current = 0;
-        nextLetterDistance.current = getLetterInterval(1);
+        nextLetterDistance.current = getLetterInterval(1, wordTarget.length);
 
     } else if (isLevelUp && level > 1) {
         // Soft Reset for Level Up (Keep visible objects)
@@ -250,7 +256,7 @@ export const LevelManager: React.FC = () => {
         // Adjust next letter spawn for the new level's difficulty (50% increase).
         // We calculate this relative to where the last letter was (which was approx at player position + 0, so SPAWN_DISTANCE ago).
         // This ensures the gap between the last letter of Level X and the first letter of Level X+1 is the new interval.
-        nextLetterDistance.current = distanceTraveled.current - SPAWN_DISTANCE + getLetterInterval(level);
+        nextLetterDistance.current = distanceTraveled.current - SPAWN_DISTANCE + getLetterInterval(level, wordTarget.length);
         
         setRenderTrigger(t => t + 1);
         
@@ -473,7 +479,8 @@ export const LevelManager: React.FC = () => {
              if (availableIndices.length > 0) {
                  const chosenIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
                  const val = target[chosenIndex];
-                 const color = GEMINI_COLORS[chosenIndex];
+                 // Cycle through the 6 neon palette entries so words longer than 6 still get colors.
+                 const color = GEMINI_COLORS[chosenIndex % GEMINI_COLORS.length];
 
                  keptObjects.push({
                     id: uuidv4(),
@@ -485,8 +492,8 @@ export const LevelManager: React.FC = () => {
                     targetIndex: chosenIndex
                  });
                  
-                 // Schedule next letter based on current level difficulty
-                 nextLetterDistance.current += getLetterInterval(level);
+                 // Schedule next letter based on current level difficulty + word length
+                 nextLetterDistance.current += getLetterInterval(level, wordTarget.length);
                  hasChanges = true;
              } else {
                 // Fallback to gem if all letters collected for this level
