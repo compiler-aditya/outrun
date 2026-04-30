@@ -130,8 +130,10 @@ const VOICE_LINES = [
   ['voice/letter-I.mp3', 'I.'],
   ['voice/letter-N.mp3', 'N.'],
 
-  // Word/level milestones
-  ['voice/word-complete.mp3', 'G. E. M. I. N. I. The signal locks in.'],
+  // Word/level milestones — default-word stinger now spells OUTRUN. (For
+  // custom 6-letter call-signs, a fresh per-word stinger is generated at
+  // runtime via the live TTS pipeline.)
+  ['voice/word-complete.mp3', 'O. U. T. R. U. N. The signal locks in.'],
   ['voice/level-2.mp3', 'Sector two. Throttle up, pilot.'],
   ['voice/level-3.mp3', 'Final sector. The cosmos is listening.'],
 
@@ -162,6 +164,15 @@ const SFX_LINES = [
   ['sfx/shop-portal.mp3', 'shimmering neon portal pulse, sci-fi door, retro synth', 1.6],
   ['sfx/game-over.mp3',   'descending synth fail tone, retro arcade game over, melancholic', 2.0],
   ['sfx/victory.mp3',     'triumphant 80s synthwave fanfare burst, neon, uplifting', 2.5],
+];
+
+// TTS-generated short vocalizations that live in /sfx/ — pulled in via
+// the SFX bus by Audio.ts so they layer with the damage zap and don't
+// fight the narrator voice channel.
+const SPOKEN_SFX = [
+  ['sfx/ouch-1.mp3', 'Ow!'],
+  ['sfx/ouch-2.mp3', 'Argh!'],
+  ['sfx/ouch-3.mp3', 'Oof.'],
 ];
 
 const MUSIC_LINES = [
@@ -195,6 +206,12 @@ async function main() {
   for (const [rel, prompt, dur] of SFX_LINES) {
     const out = path.join(PUBLIC_AUDIO, rel);
     await writeIfMissing(out, () => sfx(apiKey, prompt, dur), `${rel}  (${dur}s)`);
+  }
+
+  console.log('\nSPOKEN SFX (TTS pulled into /sfx/)');
+  for (const [rel, text] of SPOKEN_SFX) {
+    const out = path.join(PUBLIC_AUDIO, rel);
+    await writeIfMissing(out, () => tts(apiKey, text), `${rel}  "${text}"`);
   }
 
   console.log('\nMUSIC (this is slower — 30–90s per track)');
