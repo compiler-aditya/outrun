@@ -196,16 +196,17 @@ const getRandomLane = (laneCount: number) => {
 };
 
 export const LevelManager: React.FC = () => {
-  const { 
-    status, 
-    speed, 
-    collectGem, 
-    collectLetter, 
+  const {
+    status,
+    speed,
+    collectGem,
+    collectLetter,
     collectedLetters,
     laneCount,
     setDistance,
     openShop,
-    level
+    level,
+    wordTarget,
   } = useStore();
   
   const objectsRef = useRef<GameObject[]>([]);
@@ -465,7 +466,7 @@ export const LevelManager: React.FC = () => {
 
          if (isLetterDue) {
              const lane = getRandomLane(laneCount);
-             const target = ['G','E','M','I','N','I'];
+             const target = wordTarget;
              
              const availableIndices = target.map((_, i) => i).filter(i => !collectedLetters.includes(i));
 
