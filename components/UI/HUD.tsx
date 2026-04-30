@@ -5,10 +5,47 @@
 
 
 import React, { useState, useEffect } from 'react';
-import { Heart, Zap, Trophy, MapPin, Diamond, Rocket, ArrowUpCircle, Shield, Activity, PlusCircle, Play } from 'lucide-react';
+import { Heart, Zap, Trophy, MapPin, Diamond, Rocket, ArrowUpCircle, Shield, Activity, PlusCircle, Play, Mic, Volume2 } from 'lucide-react';
 import { useStore } from '../../store';
 import { GameStatus, GEMINI_COLORS, ShopItem, RUN_SPEED_BASE } from '../../types';
 import { audio } from '../System/Audio';
+import { isLiveTtsAvailable } from '../../services/elevenlabs';
+
+// ---------- Recap panel (used by GAME_OVER and VICTORY) ----------
+
+const RecapPanel: React.FC<{ tone: 'fail' | 'win' }> = ({ tone }) => {
+    const { recapText, recapUrl } = useStore();
+    if (!recapText) return null;
+
+    const replay = () => {
+        if (recapUrl) {
+            audio.playVoiceUrl(recapUrl).catch(() => {});
+        } else {
+            audio.playVoice(tone === 'win' ? 'victory' : 'game-over').catch(() => {});
+        }
+    };
+
+    const accent = tone === 'win'
+        ? 'border-yellow-500/40 bg-black/50 text-yellow-100'
+        : 'border-cyan-500/30 bg-black/50 text-cyan-100';
+
+    return (
+        <div className={`max-w-md w-full mb-6 p-4 md:p-5 rounded-xl border ${accent}`}>
+            <div className="flex items-center text-xs text-cyan-400 tracking-widest mb-2">
+                <Mic className="w-4 h-4 mr-2" /> NARRATOR
+            </div>
+            <p className="text-sm md:text-base font-mono leading-relaxed italic">
+                "{recapText}"
+            </p>
+            <button
+                onClick={replay}
+                className="mt-3 inline-flex items-center text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-cyan-200 border border-white/10"
+            >
+                <Volume2 className="w-3 h-3 mr-1" /> Replay narration
+            </button>
+        </div>
+    );
+};
 
 // Available Shop Items
 const SHOP_ITEMS: ShopItem[] = [
@@ -49,14 +86,11 @@ const ShopScreen: React.FC = () => {
     const [items, setItems] = useState<ShopItem[]>([]);
 
     useEffect(() => {
-        // Select 3 random items, filtering out one-time items already bought
         let pool = SHOP_ITEMS.filter(item => {
             if (item.id === 'DOUBLE_JUMP' && hasDoubleJump) return false;
             if (item.id === 'IMMORTAL' && hasImmortality) return false;
             return true;
         });
-
-        // Shuffle and pick 3
         pool = pool.sort(() => 0.5 - Math.random());
         setItems(pool.slice(0, 3));
     }, []);
@@ -81,7 +115,7 @@ const ShopScreen: React.FC = () => {
                                  </div>
                                  <h3 className="text-lg md:text-xl font-bold mb-2">{item.name}</h3>
                                  <p className="text-gray-400 text-xs md:text-sm mb-4 h-10 md:h-12 flex items-center justify-center">{item.description}</p>
-                                 <button 
+                                 <button
                                     onClick={() => buyItem(item.id as any, item.cost)}
                                     disabled={!canAfford}
                                     className={`px-4 md:px-6 py-2 rounded font-bold w-full text-sm md:text-base ${canAfford ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:brightness-110' : 'bg-gray-700 cursor-not-allowed opacity-50'}`}
@@ -93,7 +127,7 @@ const ShopScreen: React.FC = () => {
                      })}
                  </div>
 
-                 <button 
+                 <button
                     onClick={closeShop}
                     className="flex items-center px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,0,255,0.4)]"
                  >
@@ -105,8 +139,25 @@ const ShopScreen: React.FC = () => {
 };
 
 export const HUD: React.FC = () => {
-  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed } = useStore();
+  const { score, lives, maxLives, collectedLetters, status, level, restartGame, startGame, gemsCollected, distance, isImmortalityActive, speed, callsign, setCallsign } = useStore();
   const target = ['G', 'E', 'M', 'I', 'N', 'I'];
+  const liveTts = isLiveTtsAvailable();
+  const [draft, setDraft] = useState(callsign);
+
+  // Play menu intro voice once when the menu mounts.
+  useEffect(() => {
+      if (status !== GameStatus.MENU) return;
+      const t = setTimeout(() => {
+          audio.playVoice('menu-intro').catch(() => {});
+      }, 400);
+      return () => clearTimeout(t);
+  }, [status]);
+
+  const onLaunch = () => {
+      audio.init();
+      setCallsign(draft);
+      startGame();
+  };
 
   // Common container style
   const containerClass = "absolute inset-0 pointer-events-none flex flex-col justify-between p-4 md:p-8 z-50";
@@ -120,23 +171,43 @@ export const HUD: React.FC = () => {
           <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/80 backdrop-blur-sm p-4 pointer-events-auto">
               {/* Card Container */}
               <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.2)] border border-white/10 animate-in zoom-in-95 duration-500">
-                
+
                 {/* Image Container - Auto height to fit full image without cropping */}
                 <div className="relative w-full bg-gray-900">
-                     <img 
-                      src="https://www.gstatic.com/aistudio/starter-apps/gemini_runner/gemini_runner.png" 
-                      alt="Gemini Runner Cover" 
+                     <img
+                      src="https://www.gstatic.com/aistudio/starter-apps/gemini_runner/gemini_runner.png"
+                      alt="Gemini Runner Cover"
                       className="w-full h-auto block"
                      />
-                     
+
                      {/* Gradient Overlay for text readability */}
                      <div className="absolute inset-0 bg-gradient-to-t from-[#050011] via-black/30 to-transparent"></div>
-                     
+
                      {/* Content positioned at the bottom of the card */}
                      <div className="absolute inset-0 flex flex-col justify-end items-center p-6 pb-8 text-center z-10 bg-gradient-to-t from-black/80 to-transparent">
-                        
-                        <button 
-                          onClick={() => { audio.init(); startGame(); }}
+
+                        {/* Call-sign input — narrator personalization only, doesn't affect gameplay */}
+                        <div className="w-full mb-4">
+                            <label className="block text-cyan-300/70 text-[10px] tracking-[0.3em] font-mono mb-1.5">
+                                CALL SIGN {liveTts ? '(narrator will say it)' : '(optional)'}
+                            </label>
+                            <input
+                                value={draft}
+                                onChange={e => setDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
+                                onKeyDown={e => { if (e.key === 'Enter') onLaunch(); }}
+                                placeholder="PILOT"
+                                maxLength={12}
+                                className="w-full bg-black/60 border border-cyan-400/30 focus:border-cyan-400 outline-none text-cyan-100 font-cyber text-center tracking-[0.4em] text-lg px-3 py-2 rounded-lg placeholder:text-cyan-500/30 placeholder:tracking-[0.4em]"
+                            />
+                            {liveTts && (
+                                <p className="text-[10px] text-cyan-500/60 mt-1 font-mono">
+                                    powered by ElevenLabs · live TTS
+                                </p>
+                            )}
+                        </div>
+
+                        <button
+                          onClick={onLaunch}
                           className="w-full group relative px-6 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white font-black text-xl rounded-xl hover:bg-white/20 transition-all shadow-[0_0_20px_rgba(0,255,255,0.2)] hover:shadow-[0_0_30px_rgba(0,255,255,0.4)] hover:border-cyan-400 overflow-hidden"
                         >
                             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/40 via-purple-500/40 to-pink-500/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
@@ -160,7 +231,9 @@ export const HUD: React.FC = () => {
           <div className="absolute inset-0 bg-black/90 z-[100] text-white pointer-events-auto backdrop-blur-sm overflow-y-auto">
               <div className="flex flex-col items-center justify-center min-h-full py-8 px-4">
                 <h1 className="text-4xl md:text-6xl font-black text-white mb-6 drop-shadow-[0_0_10px_rgba(255,0,0,0.8)] font-cyber text-center">GAME OVER</h1>
-                
+
+                <RecapPanel tone="fail" />
+
                 <div className="grid grid-cols-1 gap-3 md:gap-4 text-center mb-8 w-full max-w-md">
                     <div className="bg-gray-900/80 p-3 md:p-4 rounded-lg border border-gray-700 flex items-center justify-between">
                         <div className="flex items-center text-yellow-400 text-sm md:text-base"><Trophy className="mr-2 w-4 h-4 md:w-5 md:h-5"/> LEVEL</div>
@@ -180,7 +253,7 @@ export const HUD: React.FC = () => {
                     </div>
                 </div>
 
-                <button 
+                <button
                   onClick={() => { audio.init(); restartGame(); }}
                   className="px-8 md:px-10 py-3 md:py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-bold text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_20px_rgba(0,255,255,0.4)]"
                 >
@@ -202,7 +275,9 @@ export const HUD: React.FC = () => {
                 <p className="text-cyan-300 text-sm md:text-2xl font-mono mb-8 tracking-widest text-center">
                     THE ANSWER TO THE UNIVERSE HAS BEEN FOUND
                 </p>
-                
+
+                <RecapPanel tone="win" />
+
                 <div className="grid grid-cols-1 gap-4 text-center mb-8 w-full max-w-md">
                     <div className="bg-black/60 p-6 rounded-xl border border-yellow-500/30 shadow-[0_0_15px_rgba(255,215,0,0.1)]">
                         <div className="text-xs md:text-sm text-gray-400 mb-1 tracking-wider">FINAL SCORE</div>
@@ -220,7 +295,7 @@ export const HUD: React.FC = () => {
                      </div>
                 </div>
 
-                <button 
+                <button
                   onClick={() => { audio.init(); restartGame(); }}
                   className="px-8 md:px-12 py-4 md:py-5 bg-white text-black font-black text-lg md:text-xl rounded hover:scale-105 transition-all shadow-[0_0_40px_rgba(255,255,255,0.3)] tracking-widest"
                 >
@@ -240,17 +315,17 @@ export const HUD: React.FC = () => {
                     {score.toLocaleString()}
                 </div>
             </div>
-            
+
             <div className="flex space-x-1 md:space-x-2">
                 {[...Array(maxLives)].map((_, i) => (
-                    <Heart 
-                        key={i} 
-                        className={`w-6 h-6 md:w-8 md:h-8 ${i < lives ? 'text-pink-500 fill-pink-500' : 'text-gray-800 fill-gray-800'} drop-shadow-[0_0_5px_#ff0054]`} 
+                    <Heart
+                        key={i}
+                        className={`w-6 h-6 md:w-8 md:h-8 ${i < lives ? 'text-pink-500 fill-pink-500' : 'text-gray-800 fill-gray-800'} drop-shadow-[0_0_5px_#ff0054]`}
                     />
                 ))}
             </div>
         </div>
-        
+
         {/* Level Indicator - Moved to Top Center aligned with Score/Hearts */}
         <div className="absolute top-5 left-1/2 transform -translate-x-1/2 text-sm md:text-lg text-purple-300 font-bold tracking-wider font-mono bg-black/50 px-3 py-1 rounded-full border border-purple-500/30 backdrop-blur-sm z-50">
             LEVEL {level} <span className="text-gray-500 text-xs md:text-sm">/ 3</span>
@@ -270,11 +345,10 @@ export const HUD: React.FC = () => {
                 const color = GEMINI_COLORS[idx];
 
                 return (
-                    <div 
+                    <div
                         key={idx}
                         style={{
                             borderColor: isCollected ? color : 'rgba(55, 65, 81, 1)',
-                            // Use dark text (almost black) when collected to contrast with neon background
                             color: isCollected ? 'rgba(0, 0, 0, 0.8)' : 'rgba(55, 65, 81, 1)',
                             boxShadow: isCollected ? `0 0 20px ${color}` : 'none',
                             backgroundColor: isCollected ? color : 'rgba(0, 0, 0, 0.9)'
