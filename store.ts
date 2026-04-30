@@ -12,6 +12,9 @@ import {
   composeRecap,
   composeGreeting,
   isLiveTtsAvailable,
+  prefetchCallsignAudio,
+  getLetterUrl,
+  getWordCompleteUrl,
 } from './services/elevenlabs';
 
 interface GameState {
@@ -26,8 +29,9 @@ interface GameState {
   gemsCollected: number;
   distance: number;
 
-  // Narrator personalization (does NOT affect in-game word — that stays GEMINI).
+  // ElevenLabs / pilot identity
   callsign: string;
+  wordTarget: string[]; // 6-letter word actually spelled in this run
   recapText: string | null;
   recapUrl: string | null;
 
@@ -55,8 +59,34 @@ interface GameState {
   activateImmortality: () => void;
 }
 
-const GEMINI_TARGET = ['G', 'E', 'M', 'I', 'N', 'I'];
+const DEFAULT_WORD = ['G', 'E', 'M', 'I', 'N', 'I'];
+const WORD_LENGTH = 6;
 const MAX_LEVEL = 3;
+
+function deriveWordTarget(callsign: string): string[] {
+  // Exactly 6 alphanumeric characters -> use the call-sign as the word.
+  if (/^[A-Z0-9]{6}$/.test(callsign)) return callsign.split('');
+  return DEFAULT_WORD;
+}
+
+const BAKED_LETTER_VOICE: Record<string, ReturnType<typeof letterVoiceId>> = {
+  G: 'letter-G', E: 'letter-E', M: 'letter-M', I: 'letter-I', N: 'letter-N',
+};
+
+function speakLetter(letter: string, fallbackIndex: number) {
+  const baked = BAKED_LETTER_VOICE[letter];
+  if (baked) {
+    audio.playVoice(baked).catch(() => {});
+    return;
+  }
+  const url = getLetterUrl(letter);
+  if (url) {
+    audio.playVoiceUrl(url).catch(() => {});
+  } else {
+    // Live TTS hasn't returned yet — fall back to baked clip by index.
+    audio.playVoice(letterVoiceId(fallbackIndex)).catch(() => {});
+  }
+}
 
 // --- Voice helpers ---
 const speak = (id: Parameters<typeof audio.playVoice>[0]) => { audio.playVoice(id).catch(() => {}); };
@@ -106,6 +136,7 @@ export const useStore = create<GameState>((set, get) => ({
   distance: 0,
 
   callsign: '',
+  wordTarget: DEFAULT_WORD,
   recapText: null,
   recapUrl: null,
 
@@ -114,11 +145,14 @@ export const useStore = create<GameState>((set, get) => ({
   isImmortalityActive: false,
 
   setCallsign: (name: string) => {
-    const cleaned = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+    // Uppercase alphanumeric only, max WORD_LENGTH (6) characters.
+    const cleaned = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, WORD_LENGTH);
     set({ callsign: cleaned });
   },
 
   startGame: () => {
+    const cs = get().callsign;
+    const target = deriveWordTarget(cs);
     set({
       status: GameStatus.PLAYING,
       score: 0,
@@ -133,11 +167,14 @@ export const useStore = create<GameState>((set, get) => ({
       hasDoubleJump: false,
       hasImmortality: false,
       isImmortalityActive: false,
+      wordTarget: target,
       recapText: null,
       recapUrl: null,
     });
     audio.preloadAll();
-    const cs = get().callsign;
+    if (target !== DEFAULT_WORD) {
+      prefetchCallsignAudio(target).catch(() => {});
+    }
     if (cs && isLiveTtsAvailable()) {
       speakLive(composeGreeting(cs), 'run-start');
     } else {
@@ -173,7 +210,7 @@ export const useStore = create<GameState>((set, get) => ({
   setDistance: (dist) => set({ distance: dist }),
 
   collectLetter: (index) => {
-    const { collectedLetters, level, speed } = get();
+    const { collectedLetters, level, speed, wordTarget } = get();
 
     if (!collectedLetters.includes(index)) {
       const newLetters = [...collectedLetters, index];
@@ -185,12 +222,22 @@ export const useStore = create<GameState>((set, get) => ({
         speed: nextSpeed
       });
 
-      // Voice: DJ calls out the letter from the GEMINI word.
-      speak(letterVoiceId(index));
+      // Voice: DJ calls out the actual letter from the player's word.
+      const letter = wordTarget[index];
+      if (letter) speakLetter(letter, index);
 
-      if (newLetters.length === GEMINI_TARGET.length) {
+      if (newLetters.length === WORD_LENGTH) {
+        const customWordUrl = getWordCompleteUrl(wordTarget);
+        const playWordComplete = () => {
+          if (customWordUrl) {
+            audio.playVoiceUrl(customWordUrl).catch(() => {});
+          } else {
+            audio.playVoice('word-complete').catch(() => {});
+          }
+        };
+
         if (level < MAX_LEVEL) {
-            speakDelayed('word-complete', 600);
+            setTimeout(playWordComplete, 600);
             const nextLevel = level + 1;
             speakDelayed(nextLevel === 2 ? 'level-2' : 'level-3', 4500);
             get().advanceLevel();
@@ -199,7 +246,7 @@ export const useStore = create<GameState>((set, get) => ({
                 status: GameStatus.VICTORY,
                 score: get().score + 5000
             });
-            speakDelayed('word-complete', 400);
+            setTimeout(playWordComplete, 400);
             generateRecapAndStore(set, get, true);
         }
       }
