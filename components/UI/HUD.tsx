@@ -10,6 +10,7 @@ import { useStore } from '../../store';
 import { GameStatus, GEMINI_COLORS, ShopItem, RUN_SPEED_BASE } from '../../types';
 import { audio } from '../System/Audio';
 import { isLiveTtsAvailable } from '../../services/elevenlabs';
+import { getSector, MAX_SECTOR } from '../../services/sectors';
 
 // Module-level flag — shows the tutorial once per page load (project rule:
 // no localStorage, so we just keep this in JS memory for the session).
@@ -406,7 +407,7 @@ export const HUD: React.FC = () => {
                 <div className="grid grid-cols-1 gap-3 md:gap-4 text-center mb-8 w-full max-w-md">
                     <div className="bg-gray-900/80 p-3 md:p-4 rounded-lg border border-gray-700 flex items-center justify-between">
                         <div className="flex items-center text-yellow-400 text-sm md:text-base"><Trophy className="mr-2 w-4 h-4 md:w-5 md:h-5"/> LEVEL</div>
-                        <div className="text-xl md:text-2xl font-bold font-mono">{level} / 3</div>
+                        <div className="text-xl md:text-2xl font-bold font-mono">{level} / {MAX_SECTOR}</div>
                     </div>
                     <div className="bg-gray-900/80 p-3 md:p-4 rounded-lg border border-gray-700 flex items-center justify-between">
                         <div className="flex items-center text-cyan-400 text-sm md:text-base"><Diamond className="mr-2 w-4 h-4 md:w-5 md:h-5"/> GEMS COLLECTED</div>
@@ -497,7 +498,8 @@ export const HUD: React.FC = () => {
         
         {/* Level Indicator - Moved to Top Center aligned with Score/Hearts */}
         <div className="absolute top-5 left-1/2 transform -translate-x-1/2 text-sm md:text-lg text-purple-300 font-bold tracking-wider font-mono bg-black/50 px-3 py-1 rounded-full border border-purple-500/30 backdrop-blur-sm z-50">
-            LEVEL {level} <span className="text-gray-500 text-xs md:text-sm">/ 3</span>
+            LEVEL {level} <span className="text-gray-500 text-xs md:text-sm">/ {MAX_SECTOR}</span>
+            <span className="ml-2 text-cyan-300/80 font-cyber tracking-widest text-xs md:text-sm">{getSector(level).name}</span>
         </div>
 
         {/* Active Skill Indicator */}

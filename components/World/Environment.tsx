@@ -9,8 +9,9 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { useStore } from '../../store';
 import { LANE_WIDTH } from '../../types';
+import { getSector } from '../../services/sectors';
 
-const StarField: React.FC = () => {
+const StarField: React.FC<{ opacity: number }> = ({ opacity }) => {
   const speed = useStore(state => state.speed);
   const count = 3000; // Increased star count for better density
   const meshRef = useRef<THREE.Points>(null);
@@ -90,20 +91,20 @@ const StarField: React.FC = () => {
         size={0.5}
         color="#ffffff"
         transparent
-        opacity={0.8}
+        opacity={opacity}
         sizeAttenuation
       />
     </points>
   );
 };
 
-const LaneGuides: React.FC = () => {
+const LaneGuides: React.FC<{ laneColor: string; floorColor: string }> = ({ laneColor, floorColor }) => {
     const { laneCount } = useStore();
-    
+
     const separators = useMemo(() => {
         const lines: number[] = [];
         const startX = -(laneCount * LANE_WIDTH) / 2;
-        
+
         for (let i = 0; i <= laneCount; i++) {
             lines.push(startX + (i * LANE_WIDTH));
         }
@@ -112,20 +113,18 @@ const LaneGuides: React.FC = () => {
 
     return (
         <group position={[0, 0.02, 0]}>
-            {/* Lane Floor - Lowered slightly to -0.02 */}
             <mesh position={[0, -0.02, -20]} rotation={[-Math.PI / 2, 0, 0]}>
                 <planeGeometry args={[laneCount * LANE_WIDTH, 200]} />
-                <meshBasicMaterial color="#1a0b2e" transparent opacity={0.9} />
+                <meshBasicMaterial color={floorColor} transparent opacity={0.9} />
             </mesh>
 
-            {/* Lane Separators - Glowing Lines */}
             {separators.map((x, i) => (
                 <mesh key={`sep-${i}`} position={[x, 0, -20]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <planeGeometry args={[0.05, 200]} /> 
-                    <meshBasicMaterial 
-                        color="#00ffff" 
-                        transparent 
-                        opacity={0.4} 
+                    <planeGeometry args={[0.05, 200]} />
+                    <meshBasicMaterial
+                        color={laneColor}
+                        transparent
+                        opacity={0.4}
                     />
                 </mesh>
             ))}
@@ -133,7 +132,7 @@ const LaneGuides: React.FC = () => {
     );
 };
 
-const RetroSun: React.FC = () => {
+const RetroSun: React.FC<{ topColor: string; bottomColor: string }> = ({ topColor, bottomColor }) => {
     const matRef = useRef<THREE.ShaderMaterial>(null);
     const sunGroupRef = useRef<THREE.Group>(null);
 
@@ -141,25 +140,25 @@ const RetroSun: React.FC = () => {
         if (matRef.current) {
             matRef.current.uniforms.uTime.value = state.clock.elapsedTime;
         }
-        // Gentle bobbing
         if (sunGroupRef.current) {
             sunGroupRef.current.position.y = 30 + Math.sin(state.clock.elapsedTime * 0.2) * 1.0;
             sunGroupRef.current.rotation.y = state.clock.elapsedTime * 0.05;
         }
     });
 
+    // Recreate uniforms when sector colors change so the shader re-tints.
     const uniforms = useMemo(() => ({
         uTime: { value: 0 },
-        uColorTop: { value: new THREE.Color('#ffe600') }, // Bright Yellow
-        uColorBottom: { value: new THREE.Color('#ff0077') } // Magenta/Pink
-    }), []);
+        uColorTop: { value: new THREE.Color(topColor) },
+        uColorBottom: { value: new THREE.Color(bottomColor) }
+    }), [topColor, bottomColor]);
 
     return (
         <group ref={sunGroupRef} position={[0, 30, -180]}>
-            {/* Reduced Geometry for Mobile: 32 segments instead of 64 */}
             <mesh>
                 <sphereGeometry args={[35, 32, 32]} />
                 <shaderMaterial
+                    key={`${topColor}-${bottomColor}`}
                     ref={matRef}
                     uniforms={uniforms}
                     transparent
@@ -205,20 +204,17 @@ const RetroSun: React.FC = () => {
     );
 };
 
-const MovingGrid: React.FC = () => {
+const MovingGrid: React.FC<{ color: string }> = ({ color }) => {
     const speed = useStore(state => state.speed);
     const meshRef = useRef<THREE.Mesh>(null);
     const offsetRef = useRef(0);
-    
+
     useFrame((state, delta) => {
         if (meshRef.current) {
              const activeSpeed = speed > 0 ? speed : 5;
              offsetRef.current += activeSpeed * delta;
-             
-             // Grid cell size = 400 (length) / 40 (segments) = 10 units
+
              const cellSize = 10;
-             
-             // Move mesh forward (+Z) to simulate travel, then snap back
              const zPos = -100 + (offsetRef.current % cellSize);
              meshRef.current.position.z = zPos;
         }
@@ -227,31 +223,35 @@ const MovingGrid: React.FC = () => {
     return (
         <mesh ref={meshRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, -100]}>
             <planeGeometry args={[300, 400, 30, 40]} />
-            <meshBasicMaterial 
-                color="#8800ff" 
-                wireframe 
-                transparent 
-                opacity={0.15} 
+            <meshBasicMaterial
+                color={color}
+                wireframe
+                transparent
+                opacity={0.15}
             />
         </mesh>
     );
 };
 
 export const Environment: React.FC = () => {
+  const level = useStore(s => s.level);
+  const sector = getSector(level);
+  const c = sector.colors;
+
   return (
     <>
-      <color attach="background" args={['#050011']} />
-      <fog attach="fog" args={['#050011', 40, 160]} />
-      
-      <ambientLight intensity={0.2} color="#400080" />
-      <directionalLight position={[0, 20, -10]} intensity={1.5} color="#00ffff" />
-      <pointLight position={[0, 25, -150]} intensity={2} color="#ff00aa" distance={200} decay={2} />
-      
-      <StarField />
-      <MovingGrid />
-      <LaneGuides />
-      
-      <RetroSun />
+      <color attach="background" args={[c.bg]} />
+      <fog attach="fog" args={[c.fog, sector.fogNear, sector.fogFar]} />
+
+      <ambientLight intensity={0.2} color={c.ambient} />
+      <directionalLight position={[0, 20, -10]} intensity={1.5} color={c.directional} />
+      <pointLight position={[0, 25, -150]} intensity={2} color={c.point} distance={200} decay={2} />
+
+      <StarField opacity={sector.starOpacity} />
+      <MovingGrid color={c.grid} />
+      <LaneGuides laneColor={c.lane} floorColor={c.laneFloor} />
+
+      <RetroSun topColor={c.sunTop} bottomColor={c.sunBottom} />
     </>
   );
 };

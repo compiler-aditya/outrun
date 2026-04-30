@@ -11,6 +11,7 @@ import { Text3D, Center, Float } from '@react-three/drei';
 import { v4 as uuidv4 } from 'uuid';
 import { useStore } from '../../store';
 import { GameObject, ObjectType, ObstacleVariant, LANE_WIDTH, SPAWN_DISTANCE, REMOVE_DISTANCE, GameStatus, GEMINI_COLORS } from '../../types';
+import { getSector } from '../../services/sectors';
 import { audio } from '../System/Audio';
 
 // Geometry Constants
@@ -477,7 +478,12 @@ export const LevelManager: React.FC = () => {
              const availableIndices = target.map((_, i) => i).filter(i => !collectedLetters.includes(i));
 
              if (availableIndices.length > 0) {
-                 const chosenIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+                 // REVERSE sector: pick highest available index first (last letter
+                 // of word spawns first). Other sectors: random.
+                 const sector = getSector(level);
+                 const chosenIndex = sector.reverseSpawn
+                    ? Math.max(...availableIndices)
+                    : availableIndices[Math.floor(Math.random() * availableIndices.length)];
                  const val = target[chosenIndex];
                  // Cycle through the 6 neon palette entries so words longer than 6 still get colors.
                  const color = GEMINI_COLORS[chosenIndex % GEMINI_COLORS.length];
@@ -509,10 +515,10 @@ export const LevelManager: React.FC = () => {
              }
 
           } else if (Math.random() > 0.1) { // 90% chance to attempt spawn if gap exists
-            
-            // Standard difficulty scaling based on level
-            const gemProb = 0.20 + (level * 0.02); // Slightly more gems as levels progress
-            const isObstacle = Math.random() > gemProb;
+            // Per-sector obstacle density multiplier — STORM = 1.5, VOID = 0.7, etc.
+            const sector = getSector(level);
+            const baseObstacleProb = 1 - (0.20 + (level * 0.02));
+            const isObstacle = Math.random() < baseObstacleProb * sector.obstacleDensity;
 
             if (isObstacle) {
                 // Decide between Alien (Level 2+) or Spikes

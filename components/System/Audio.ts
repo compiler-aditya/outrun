@@ -18,7 +18,7 @@ type SfxId =
 
 type VoiceId =
   | 'letter-G' | 'letter-E' | 'letter-M' | 'letter-I' | 'letter-N'
-  | 'word-complete' | 'level-2' | 'level-3'
+  | 'word-complete' | 'level-2' | 'level-3' | 'level-4' | 'level-5' | 'level-6'
   | 'damage' | 'last-life' | 'game-over' | 'victory'
   | 'shop-welcome' | 'menu-intro' | 'run-start' | 'immortal';
 
@@ -46,6 +46,9 @@ const VOICE_FILES: Record<VoiceId, string> = {
   'word-complete': '/audio/voice/word-complete.mp3',
   'level-2': '/audio/voice/level-2.mp3',
   'level-3': '/audio/voice/level-3.mp3',
+  'level-4': '/audio/voice/level-4.mp3',
+  'level-5': '/audio/voice/level-5.mp3',
+  'level-6': '/audio/voice/level-6.mp3',
   'damage': '/audio/voice/damage.mp3',
   'last-life': '/audio/voice/last-life.mp3',
   'game-over': '/audio/voice/game-over.mp3',

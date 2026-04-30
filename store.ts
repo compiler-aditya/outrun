@@ -62,7 +62,8 @@ interface GameState {
 const DEFAULT_WORD = ['O', 'U', 'T', 'R', 'U', 'N'];
 const MIN_WORD_LENGTH = 6;
 const MAX_WORD_LENGTH = 10;
-const MAX_LEVEL = 3;
+import { MAX_SECTOR } from './services/sectors';
+const MAX_LEVEL = MAX_SECTOR; // now 6 — see services/sectors.ts
 
 function deriveWordTarget(callsign: string): string[] {
   // 6-10 alphanumeric characters -> use the call-sign as the word.
@@ -243,7 +244,10 @@ export const useStore = create<GameState>((set, get) => ({
         if (level < MAX_LEVEL) {
             setTimeout(playWordComplete, 600);
             const nextLevel = level + 1;
-            speakDelayed(nextLevel === 2 ? 'level-2' : 'level-3', 4500);
+            // Per-sector callout: level-2 / level-3 are baked, 4-6 are new entries
+            // (run npm run generate-audio to populate them; otherwise silent fallback).
+            const callout = (`level-${nextLevel}` as Parameters<typeof audio.playVoice>[0]);
+            speakDelayed(callout, 4500);
             get().advanceLevel();
         } else {
             set({

@@ -135,7 +135,10 @@ const VOICE_LINES = [
   // runtime via the live TTS pipeline.)
   ['voice/word-complete.mp3', 'O. U. T. R. U. N. The signal locks in.'],
   ['voice/level-2.mp3', 'Sector two. Throttle up, pilot.'],
-  ['voice/level-3.mp3', 'Final sector. The cosmos is listening.'],
+  ['voice/level-3.mp3', 'Sector three. The signal sharpens.'],
+  ['voice/level-4.mp3', 'Sector four. Storm front detected. Visibility compromised.'],
+  ['voice/level-5.mp3', 'Sector five. The void answers.'],
+  ['voice/level-6.mp3', 'Final sector. Spell yourself backwards. The cosmos rewinds.'],
 
   // Combat / state
   ['voice/damage.mp3', 'Hull integrity falling.'],
