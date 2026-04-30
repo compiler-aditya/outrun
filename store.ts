@@ -59,13 +59,17 @@ interface GameState {
   activateImmortality: () => void;
 }
 
-const DEFAULT_WORD = ['G', 'E', 'M', 'I', 'N', 'I'];
-const WORD_LENGTH = 6;
+const DEFAULT_WORD = ['O', 'U', 'T', 'R', 'U', 'N'];
+const MIN_WORD_LENGTH = 6;
+const MAX_WORD_LENGTH = 10;
 const MAX_LEVEL = 3;
 
 function deriveWordTarget(callsign: string): string[] {
-  // Exactly 6 alphanumeric characters -> use the call-sign as the word.
-  if (/^[A-Z0-9]{6}$/.test(callsign)) return callsign.split('');
+  // 6-10 alphanumeric characters -> use the call-sign as the word.
+  // Anything else -> default OUTRUN.
+  if (new RegExp(`^[A-Z0-9]{${MIN_WORD_LENGTH},${MAX_WORD_LENGTH}}$`).test(callsign)) {
+    return callsign.split('');
+  }
   return DEFAULT_WORD;
 }
 
@@ -145,8 +149,8 @@ export const useStore = create<GameState>((set, get) => ({
   isImmortalityActive: false,
 
   setCallsign: (name: string) => {
-    // Uppercase alphanumeric only, max WORD_LENGTH (6) characters.
-    const cleaned = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, WORD_LENGTH);
+    // Uppercase alphanumeric only, capped at MAX_WORD_LENGTH (10).
+    const cleaned = name.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, MAX_WORD_LENGTH);
     set({ callsign: cleaned });
   },
 
@@ -172,9 +176,9 @@ export const useStore = create<GameState>((set, get) => ({
       recapUrl: null,
     });
     audio.preloadAll();
-    if (target !== DEFAULT_WORD) {
-      prefetchCallsignAudio(target).catch(() => {});
-    }
+    // Always prefetch — the default word (OUTRUN) has letters (O/U/T/R) that
+    // aren't baked, plus the word-complete stinger needs to spell OUTRUN, not GEMINI.
+    prefetchCallsignAudio(target).catch(() => {});
     if (cs && isLiveTtsAvailable()) {
       speakLive(composeGreeting(cs), 'run-start');
     } else {
@@ -226,7 +230,7 @@ export const useStore = create<GameState>((set, get) => ({
       const letter = wordTarget[index];
       if (letter) speakLetter(letter, index);
 
-      if (newLetters.length === WORD_LENGTH) {
+      if (newLetters.length === wordTarget.length) {
         const customWordUrl = getWordCompleteUrl(wordTarget);
         const playWordComplete = () => {
           if (customWordUrl) {
