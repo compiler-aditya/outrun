@@ -17,16 +17,17 @@ let tutorialDismissedThisSession = false;
 
 // ---------- First-load tutorial overlay ----------
 
-const TutorialOverlay: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => {
+interface TutorialOverlayProps {
+    draft: string;
+    setDraft: (s: string) => void;
+    onStart: () => void;
+    liveTts: boolean;
+}
+
+const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ draft, setDraft, onStart, liveTts }) => {
     return (
-        <div
-            className="absolute inset-0 z-[110] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-300"
-            onClick={onDismiss}
-        >
-            <div
-                className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(255,0,170,0.35)] border border-fuchsia-400/40 bg-gradient-to-b from-purple-950 via-[#0a0020] to-[#050011] p-7 md:p-8 animate-in zoom-in-95 duration-400"
-                onClick={e => e.stopPropagation()}
-            >
+        <div className="absolute inset-0 z-[110] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-300">
+            <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(255,0,170,0.35)] border border-fuchsia-400/40 bg-gradient-to-b from-purple-950 via-[#0a0020] to-[#050011] p-7 md:p-8 animate-in zoom-in-95 duration-400">
                 {/* Header */}
                 <div className="flex items-center text-cyan-300/80 text-[10px] tracking-[0.4em] font-mono mb-2">
                     <Mic className="w-3.5 h-3.5 mr-2" /> INCOMING TRANSMISSION
@@ -36,55 +37,95 @@ const TutorialOverlay: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => 
                 </h2>
 
                 {/* Body */}
-                <div className="mt-5 space-y-4 text-cyan-100">
+                <div className="mt-5 space-y-3 text-cyan-100">
                     <div className="flex gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/50 flex items-center justify-center font-cyber font-black text-fuchsia-200 text-sm">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/50 flex items-center justify-center font-cyber font-black text-fuchsia-200 text-xs">
                             1
                         </div>
-                        <div className="text-sm md:text-base font-mono leading-relaxed">
-                            <span className="text-fuchsia-300 font-bold">Type a 6 to 10 letter word</span> in the call-sign box. That word becomes your in-game spelling target.
+                        <div className="text-sm font-mono leading-relaxed">
+                            <span className="text-fuchsia-300 font-bold">Type a 6–10 letter word</span> below — it becomes your in-game spelling target.
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center font-cyber font-black text-cyan-200 text-sm">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center font-cyber font-black text-cyan-200 text-xs">
                             2
                         </div>
-                        <div className="text-sm md:text-base font-mono leading-relaxed">
-                            <span className="text-cyan-300 font-bold">Run, dodge, collect each letter</span> across three sectors. The AI radio DJ chants every letter as you grab it.
+                        <div className="text-sm font-mono leading-relaxed">
+                            <span className="text-cyan-300 font-bold">Collect each letter</span> across three sectors — the AI radio DJ chants every one.
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center font-cyber font-black text-yellow-200 text-sm">
+                        <div className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center font-cyber font-black text-yellow-200 text-xs">
                             3
                         </div>
-                        <div className="text-sm md:text-base font-mono leading-relaxed">
-                            <span className="text-yellow-300 font-bold">Spell the full word</span> to advance. Survive the third sector to win.
+                        <div className="text-sm font-mono leading-relaxed">
+                            <span className="text-yellow-300 font-bold">Survive sector three</span> to win.
                         </div>
                     </div>
                 </div>
 
-                {/* Controls */}
+                {/* Controls — emphasized */}
                 <div className="mt-5 pt-4 border-t border-white/10">
-                    <p className="text-[10px] tracking-[0.3em] font-mono text-cyan-400/70 mb-2">CONTROLS</p>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] md:text-xs font-mono text-cyan-200/80">
-                        <div>← → / SWIPE</div><div className="text-cyan-100/60">change lane</div>
-                        <div>↑ / SWIPE UP</div><div className="text-cyan-100/60">jump</div>
-                        <div>SPACE / TAP</div><div className="text-cyan-100/60">activate shield</div>
+                    <p className="text-[10px] tracking-[0.3em] font-mono text-cyan-400/70 mb-3">CONTROLS</p>
+                    <div className="space-y-2 font-mono">
+                        <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center justify-center min-w-[3.5rem] h-8 px-2 rounded-md bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 font-bold text-base">←  →</span>
+                            <span className="text-sm text-cyan-100/80">move left / right between lanes</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center justify-center min-w-[3.5rem] h-8 px-2 rounded-md bg-fuchsia-500/15 border border-fuchsia-400/40 text-fuchsia-200 font-bold text-base">↑</span>
+                            <span className="text-sm text-cyan-100/80">jump</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center justify-center min-w-[3.5rem] h-8 px-2 rounded-md bg-yellow-500/15 border border-yellow-400/40 text-yellow-200 font-bold text-xs">SPACE</span>
+                            <span className="text-sm text-cyan-100/80">activate shield (when unlocked)</span>
+                        </div>
                     </div>
+                    <p className="mt-2 text-[10px] text-cyan-400/40 font-mono italic">
+                        on mobile: swipe instead of arrows · tap for shield
+                    </p>
                 </div>
 
-                <p className="mt-5 text-[10px] text-cyan-400/40 font-mono italic text-center">
-                    leave the input blank to play as <span className="text-yellow-300/70">OUTRUN</span>
-                </p>
+                {/* Call-sign input */}
+                <div className="mt-5 pt-4 border-t border-white/10">
+                    <label className="block text-cyan-300/80 text-[10px] tracking-[0.3em] font-mono mb-2">
+                        YOUR CALL SIGN (6–10 LETTERS)
+                    </label>
+                    <input
+                        value={draft}
+                        onChange={e => setDraft(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10))}
+                        onKeyDown={e => { if (e.key === 'Enter') onStart(); }}
+                        placeholder="OUTRUN"
+                        maxLength={10}
+                        autoFocus
+                        className="w-full bg-black/60 border border-cyan-400/30 focus:border-cyan-400 outline-none text-cyan-100 font-cyber text-center tracking-[0.3em] text-lg px-3 py-2 rounded-lg placeholder:text-cyan-500/30"
+                    />
+                    <p className="text-[10px] mt-1 font-mono">
+                        {draft.length >= 6 ? (
+                            <span className="text-cyan-300">
+                                ✓ you'll spell <span className="font-bold tracking-[0.2em]">{draft}</span> ({draft.length} letters)
+                            </span>
+                        ) : (
+                            <span className="text-cyan-500/60">
+                                {draft.length === 0 ? 'leave blank to play as OUTRUN' : `${6 - draft.length} more or play as OUTRUN`}
+                            </span>
+                        )}
+                    </p>
+                    {liveTts && draft.length >= 6 && (
+                        <p className="text-[10px] text-cyan-500/60 mt-0.5 font-mono">
+                            powered by ElevenLabs · narrator will speak your name
+                        </p>
+                    )}
+                </div>
 
-                {/* Dismiss button */}
+                {/* START button */}
                 <button
-                    onClick={onDismiss}
-                    className="mt-6 w-full group relative px-6 py-3 bg-gradient-to-r from-cyan-500/20 via-fuchsia-500/20 to-yellow-500/20 backdrop-blur-md border border-cyan-400/50 text-white font-black rounded-xl hover:border-cyan-300 transition-all shadow-[0_0_20px_rgba(0,255,255,0.2)] hover:shadow-[0_0_35px_rgba(0,255,255,0.45)] overflow-hidden"
+                    onClick={onStart}
+                    className="mt-6 w-full group relative px-6 py-4 bg-gradient-to-r from-cyan-500/30 via-fuchsia-500/30 to-yellow-500/30 backdrop-blur-md border-2 border-cyan-400/60 text-white font-black rounded-xl hover:border-cyan-300 transition-all shadow-[0_0_25px_rgba(0,255,255,0.3)] hover:shadow-[0_0_45px_rgba(0,255,255,0.55)] overflow-hidden"
                 >
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/30 via-fuchsia-500/30 to-pink-500/30 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                    <span className="relative z-10 tracking-[0.3em] font-cyber text-sm md:text-base">
-                        I'M READY
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/40 via-fuchsia-500/40 to-pink-500/40 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                    <span className="relative z-10 tracking-[0.45em] font-cyber text-base md:text-lg flex items-center justify-center">
+                        START <Play className="ml-3 w-5 h-5 fill-white" />
                     </span>
                 </button>
             </div>
@@ -229,12 +270,14 @@ export const HUD: React.FC = () => {
   const [draft, setDraft] = useState(callsign);
   const [showTutorial, setShowTutorial] = useState(!tutorialDismissedThisSession);
 
-  const dismissTutorial = () => {
+  const tutorialStart = () => {
       tutorialDismissedThisSession = true;
       setShowTutorial(false);
-      // First user gesture — unlock audio and play the menu intro voice line.
+      // START button = launch the game directly (sets call-sign, inits audio,
+      // begins the run). Bypasses the regular menu on first load.
       audio.init();
-      audio.playVoice('menu-intro').catch(() => {});
+      setCallsign(draft);
+      startGame();
   };
 
   // Play menu intro voice once when the menu mounts — but only after the
@@ -265,7 +308,14 @@ export const HUD: React.FC = () => {
   if (status === GameStatus.MENU) {
       return (
         <>
-          {showTutorial && <TutorialOverlay onDismiss={dismissTutorial} />}
+          {showTutorial && (
+              <TutorialOverlay
+                  draft={draft}
+                  setDraft={setDraft}
+                  onStart={tutorialStart}
+                  liveTts={liveTts}
+              />
+          )}
           <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/80 backdrop-blur-sm p-4 pointer-events-auto">
               {/* Card Container */}
               <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.2)] border border-white/10 animate-in zoom-in-95 duration-500">
