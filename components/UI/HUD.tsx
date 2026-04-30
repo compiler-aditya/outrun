@@ -11,6 +11,87 @@ import { GameStatus, GEMINI_COLORS, ShopItem, RUN_SPEED_BASE } from '../../types
 import { audio } from '../System/Audio';
 import { isLiveTtsAvailable } from '../../services/elevenlabs';
 
+// Module-level flag — shows the tutorial once per page load (project rule:
+// no localStorage, so we just keep this in JS memory for the session).
+let tutorialDismissedThisSession = false;
+
+// ---------- First-load tutorial overlay ----------
+
+const TutorialOverlay: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) => {
+    return (
+        <div
+            className="absolute inset-0 z-[110] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto animate-in fade-in duration-300"
+            onClick={onDismiss}
+        >
+            <div
+                className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_60px_rgba(255,0,170,0.35)] border border-fuchsia-400/40 bg-gradient-to-b from-purple-950 via-[#0a0020] to-[#050011] p-7 md:p-8 animate-in zoom-in-95 duration-400"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* Header */}
+                <div className="flex items-center text-cyan-300/80 text-[10px] tracking-[0.4em] font-mono mb-2">
+                    <Mic className="w-3.5 h-3.5 mr-2" /> INCOMING TRANSMISSION
+                </div>
+                <h2 className="font-cyber font-black text-2xl md:text-3xl tracking-[0.25em] bg-gradient-to-b from-yellow-200 via-pink-300 to-fuchsia-500 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(255,0,170,0.4)]">
+                    HOW TO PLAY
+                </h2>
+
+                {/* Body */}
+                <div className="mt-5 space-y-4 text-cyan-100">
+                    <div className="flex gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-fuchsia-500/20 border border-fuchsia-400/50 flex items-center justify-center font-cyber font-black text-fuchsia-200 text-sm">
+                            1
+                        </div>
+                        <div className="text-sm md:text-base font-mono leading-relaxed">
+                            <span className="text-fuchsia-300 font-bold">Type a 6 to 10 letter word</span> in the call-sign box. That word becomes your in-game spelling target.
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center font-cyber font-black text-cyan-200 text-sm">
+                            2
+                        </div>
+                        <div className="text-sm md:text-base font-mono leading-relaxed">
+                            <span className="text-cyan-300 font-bold">Run, dodge, collect each letter</span> across three sectors. The AI radio DJ chants every letter as you grab it.
+                        </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 border border-yellow-400/50 flex items-center justify-center font-cyber font-black text-yellow-200 text-sm">
+                            3
+                        </div>
+                        <div className="text-sm md:text-base font-mono leading-relaxed">
+                            <span className="text-yellow-300 font-bold">Spell the full word</span> to advance. Survive the third sector to win.
+                        </div>
+                    </div>
+                </div>
+
+                {/* Controls */}
+                <div className="mt-5 pt-4 border-t border-white/10">
+                    <p className="text-[10px] tracking-[0.3em] font-mono text-cyan-400/70 mb-2">CONTROLS</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] md:text-xs font-mono text-cyan-200/80">
+                        <div>← → / SWIPE</div><div className="text-cyan-100/60">change lane</div>
+                        <div>↑ / SWIPE UP</div><div className="text-cyan-100/60">jump</div>
+                        <div>SPACE / TAP</div><div className="text-cyan-100/60">activate shield</div>
+                    </div>
+                </div>
+
+                <p className="mt-5 text-[10px] text-cyan-400/40 font-mono italic text-center">
+                    leave the input blank to play as <span className="text-yellow-300/70">OUTRUN</span>
+                </p>
+
+                {/* Dismiss button */}
+                <button
+                    onClick={onDismiss}
+                    className="mt-6 w-full group relative px-6 py-3 bg-gradient-to-r from-cyan-500/20 via-fuchsia-500/20 to-yellow-500/20 backdrop-blur-md border border-cyan-400/50 text-white font-black rounded-xl hover:border-cyan-300 transition-all shadow-[0_0_20px_rgba(0,255,255,0.2)] hover:shadow-[0_0_35px_rgba(0,255,255,0.45)] overflow-hidden"
+                >
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/30 via-fuchsia-500/30 to-pink-500/30 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
+                    <span className="relative z-10 tracking-[0.3em] font-cyber text-sm md:text-base">
+                        I'M READY
+                    </span>
+                </button>
+            </div>
+        </div>
+    );
+};
+
 // ---------- Recap panel (used by GAME_OVER and VICTORY) ----------
 
 const RecapPanel: React.FC<{ tone: 'fail' | 'win' }> = ({ tone }) => {
@@ -146,15 +227,27 @@ export const HUD: React.FC = () => {
   const target = wordTarget;
   const liveTts = isLiveTtsAvailable();
   const [draft, setDraft] = useState(callsign);
+  const [showTutorial, setShowTutorial] = useState(!tutorialDismissedThisSession);
 
-  // Play menu intro voice once when the menu mounts.
+  const dismissTutorial = () => {
+      tutorialDismissedThisSession = true;
+      setShowTutorial(false);
+      // First user gesture — unlock audio and play the menu intro voice line.
+      audio.init();
+      audio.playVoice('menu-intro').catch(() => {});
+  };
+
+  // Play menu intro voice once when the menu mounts — but only after the
+  // tutorial has been dismissed (otherwise autoplay tends to be blocked
+  // and the dismiss button is the actual user gesture).
   useEffect(() => {
       if (status !== GameStatus.MENU) return;
+      if (showTutorial) return;
       const t = setTimeout(() => {
           audio.playVoice('menu-intro').catch(() => {});
       }, 400);
       return () => clearTimeout(t);
-  }, [status]);
+  }, [status, showTutorial]);
 
   const onLaunch = () => {
       audio.init();
@@ -171,6 +264,8 @@ export const HUD: React.FC = () => {
 
   if (status === GameStatus.MENU) {
       return (
+        <>
+          {showTutorial && <TutorialOverlay onDismiss={dismissTutorial} />}
           <div className="absolute inset-0 flex items-center justify-center z-[100] bg-black/80 backdrop-blur-sm p-4 pointer-events-auto">
               {/* Card Container */}
               <div className="relative w-full max-w-md rounded-3xl overflow-hidden shadow-[0_0_50px_rgba(0,255,255,0.2)] border border-white/10 animate-in zoom-in-95 duration-500">
@@ -246,6 +341,7 @@ export const HUD: React.FC = () => {
                 </div>
               </div>
           </div>
+        </>
       );
   }
 
