@@ -93,8 +93,10 @@ export const SECTORS: SectorConfig[] = [
   { level: 2, name: 'CHASE',   reverseSpawn: false, obstacleDensity: 1.0, fogNear: 40, fogFar: 160, starOpacity: 0.8, colors: SYNTHWAVE },
   // 3 — original climax
   { level: 3, name: 'SIGNAL',  reverseSpawn: false, obstacleDensity: 1.1, fogNear: 40, fogFar: 160, starOpacity: 0.8, colors: SYNTHWAVE },
-  // 4 — STORM: red palette, thick fog, denser obstacles
-  { level: 4, name: 'STORM',   reverseSpawn: false, obstacleDensity: 1.5, fogNear: 25, fogFar: 90,  starOpacity: 0.4, colors: STORM },
+  // 4 — STORM: red palette, light haze (was too thick — fogFar=90 fully
+  // fogged anything spawning at the SPAWN_DISTANCE=120 line), slightly
+  // denser obstacles for atmosphere not unfairness.
+  { level: 4, name: 'STORM',   reverseSpawn: false, obstacleDensity: 1.25, fogNear: 35, fogFar: 140, starOpacity: 0.55, colors: STORM },
   // 5 — VOID: black/white, sparse stars, far visibility, sparse obstacles
   { level: 5, name: 'VOID',    reverseSpawn: false, obstacleDensity: 0.7, fogNear: 60, fogFar: 220, starOpacity: 0.3, colors: VOID },
   // 6 — REVERSE: pink/cyan, spell your name BACKWARDS, dense obstacles
