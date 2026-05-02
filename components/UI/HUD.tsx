@@ -78,6 +78,10 @@ const TutorialOverlay: React.FC<TutorialOverlayProps> = ({ draft, setDraft, onSt
                             <span className="text-sm text-cyan-100/80">jump</span>
                         </div>
                         <div className="flex items-center gap-3">
+                            <span className="inline-flex items-center justify-center min-w-[3.5rem] h-8 px-2 rounded-md bg-fuchsia-500/15 border border-fuchsia-400/40 text-fuchsia-200 font-bold text-xs">↑ ↑</span>
+                            <span className="text-sm text-cyan-100/80">tap again mid-air to <span className="text-fuchsia-300">fly briefly</span> (double jump · shop unlock)</span>
+                        </div>
+                        <div className="flex items-center gap-3">
                             <span className="inline-flex items-center justify-center min-w-[3.5rem] h-8 px-2 rounded-md bg-yellow-500/15 border border-yellow-400/40 text-yellow-200 font-bold text-xs">SPACE</span>
                             <span className="text-sm text-cyan-100/80">activate shield (when unlocked)</span>
                         </div>
