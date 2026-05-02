@@ -225,46 +225,58 @@ export const LevelManager: React.FC = () => {
   const distanceTraveled = useRef(0);
   const nextLetterDistance = useRef(BASE_LETTER_INTERVAL);
 
+  // Grace window after a level/game (re)start. While distanceTraveled is below
+  // this, obstacle / alien / missile spawns are suppressed so the player can
+  // see what's coming. Letters and gems still spawn — those are friendly.
+  const obstacleGraceUntil = useRef(0);
+  const OBSTACLE_GRACE_DISTANCE = 220;
+
   // Handle resets and transitions
   useEffect(() => {
     const isRestart = status === GameStatus.PLAYING && prevStatus.current === GameStatus.GAME_OVER;
     const isMenuReset = status === GameStatus.MENU;
     const isLevelUp = level !== prevLevel.current && status === GameStatus.PLAYING;
     const isVictoryReset = status === GameStatus.PLAYING && prevStatus.current === GameStatus.VICTORY;
+    const isShopExit = status === GameStatus.PLAYING && prevStatus.current === GameStatus.SHOP;
 
     if (isMenuReset || isRestart || isVictoryReset) {
         // Hard Reset of objects
         objectsRef.current = [];
         setRenderTrigger(t => t + 1);
-        
+
         // Reset trackers
         distanceTraveled.current = 0;
         nextLetterDistance.current = getLetterInterval(1, wordTarget.length);
+        // Initial grace so the very first sector doesn't slam obstacles in your face.
+        obstacleGraceUntil.current = OBSTACLE_GRACE_DISTANCE;
 
     } else if (isLevelUp && level > 1) {
         // Soft Reset for Level Up (Keep visible objects)
-        // Clear objects deep in the fog (> -80) to make room for portal, but keep visible ones
         objectsRef.current = objectsRef.current.filter(obj => obj.position[2] > -80);
 
-        // Spawn Shop Portal further out (Twice previous distance)
+        // Spawn Shop Portal further out
         objectsRef.current.push({
             id: uuidv4(),
             type: ObjectType.SHOP_PORTAL,
-            position: [0, 0, -100], 
+            position: [0, 0, -100],
             active: true,
         });
-        
-        // Adjust next letter spawn for the new level's difficulty (50% increase).
-        // We calculate this relative to where the last letter was (which was approx at player position + 0, so SPAWN_DISTANCE ago).
-        // This ensures the gap between the last letter of Level X and the first letter of Level X+1 is the new interval.
+
         nextLetterDistance.current = distanceTraveled.current - SPAWN_DISTANCE + getLetterInterval(level, wordTarget.length);
-        
+        // Grace for the new sector's pacing
+        obstacleGraceUntil.current = distanceTraveled.current + OBSTACLE_GRACE_DISTANCE;
+
         setRenderTrigger(t => t + 1);
-        
+
+    } else if (isShopExit) {
+        // Player closed the shop and is back on the runway — give them a
+        // moment to read the new sector before obstacles ramp in.
+        obstacleGraceUntil.current = distanceTraveled.current + OBSTACLE_GRACE_DISTANCE;
+
     } else if (status === GameStatus.GAME_OVER || status === GameStatus.VICTORY) {
         setDistance(Math.floor(distanceTraveled.current));
     }
-    
+
     prevStatus.current = status;
     prevLevel.current = level;
   }, [status, level, setDistance]);
@@ -515,10 +527,13 @@ export const LevelManager: React.FC = () => {
              }
 
           } else if (Math.random() > 0.1) { // 90% chance to attempt spawn if gap exists
+            // Grace window after a level/game restart — only spawn friendly
+            // gems while the player gets oriented; no spike/alien/missile spam.
+            const inGrace = distanceTraveled.current < obstacleGraceUntil.current;
             // Per-sector obstacle density multiplier — STORM = 1.5, VOID = 0.7, etc.
             const sector = getSector(level);
             const baseObstacleProb = 1 - (0.20 + (level * 0.02));
-            const isObstacle = Math.random() < baseObstacleProb * sector.obstacleDensity;
+            const isObstacle = !inGrace && Math.random() < baseObstacleProb * sector.obstacleDensity;
 
             if (isObstacle) {
                 // Decide between Alien (Level 2+) or Spikes
